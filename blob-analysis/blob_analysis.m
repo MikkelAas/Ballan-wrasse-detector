@@ -6,10 +6,19 @@ theFiles = dir(filePattern);
 
 truth = readmatrix('Documents/fisk/GroundTruth-numbered-only.csv');
 
+IoUScores = [];
+bboxFish = zeros(length(theFiles), 4);
 overlapTotal = 0;
 bboxCounter = 0;
 
-for k = 1 : length(theFiles)
+tic
+for i = 1:height(truth)
+    % Gets the bounding box from the ground truth
+    bboxFish(truth(i,1), :) = [truth(i, 4), truth(i, 2), truth(i,5)-truth(i,4), truth(i,3)-truth(i,2)];
+end
+
+
+for k = 1:length(theFiles)
     
     baseFileName = theFiles(k).name;
     fullFileName = fullfile(theFiles(k).folder, baseFileName);
@@ -59,28 +68,24 @@ for k = 1 : length(theFiles)
     if isempty(bboxOut)
         disp("No bounding box found")
         overlapRatio = 0;
-        overlapTotal = overlapTotal + overlapRatio;
-        bboxCounter = bboxCounter + 1;
     else
         disp("Bounding box found")
-        for i = 1:height(truth)
-            if truth(i, 1) == k
-                % Gets the bounding box from the ground truth
-                bboxFish = [truth(i, 4), truth(i, 2), truth(i,5)-truth(i,4), truth(i,3)-truth(i,2)];
-            end
-        end
-        overlapRatio = bboxOverlapRatio(bboxOut, bboxFish);
-        overlapTotal = overlapTotal + overlapRatio(1, :);
-        bboxCounter = bboxCounter + 1;
+        overlapRatio = bboxOverlapRatio(bboxOut, bboxFish(k, :));
+        overlapRatio = overlapRatio(1, :);
+        IoUScore(k) = overlapRatio;
     end
+    overlapTotal = overlapTotal + overlapRatio;
+    bboxCounter = bboxCounter + 1;
 
+    
     % Add rectangle to the image
-    %Ishape = insertShape(image, 'FilledRectangle', bboxOut,'Linewidth',4, 'Color', 'red');
+    %Ishape = insertShape(image, 'Rectangle', bboxOut,'Linewidth',4, 'Color', 'red');
     %Ishape = insertShape(Ishape, 'FilledRectangle', bboxFish,'Linewidth',4, 'Color', 'green');
 
 
     %imwrite(Ishape, "/home/ukhu/Documents/fisk/output/"+baseFileName)
 
 end
-
+toc
+boxplot(IoUScore)
 overlapAverage = (overlapTotal / bboxCounter)

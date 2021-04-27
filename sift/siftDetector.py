@@ -2,7 +2,7 @@
 
 
 import glob
-
+import sys
 import cv2
 import matplotlib.pyplot as plt
 
@@ -21,6 +21,16 @@ imagePaths = glob.glob('./dataset/testing/*.jpg')
 
 # Loops through all the images in the testing folder
 for imagePath in imagePaths:
+    # The 'axes'
+    largestX = 0
+    smallestX = sys.maxsize
+    largestY = 0
+    smallestY = sys.maxsize
+
+    # The list of keypoints in each image (the query image and the testing image)
+    listKeypoints1 = []
+    listKeyPoints2 = []
+
     # Reads an image
     inputImage = cv2.imread(imagePath)
 
@@ -34,20 +44,19 @@ for imagePath in imagePaths:
     keypointsTemplateImage, descriptorsTemplateImage = sift.detectAndCompute(templateImage, None)
 
     # Computes keypoints in the testing image
-    keypointsInputImage, descriptorsImputImage = sift.detectAndCompute(inputImage, None)
+    keypointsInputImage, descriptorsInputImage = sift.detectAndCompute(inputImage, None)
 
     # Creates an instance of a BF matcher
     BFMatcher = cv2.BFMatcher(cv2.NORM_L1, crossCheck=True)
 
     # Finds matching keypoints
-    matches = BFMatcher.match(descriptorsTemplateImage, descriptorsImputImage)
+    matches = BFMatcher.match(descriptorsTemplateImage, descriptorsInputImage)
 
     # Sorts the matches
     matches = sorted(matches, key=lambda x: x.distance)
 
     # Loops through all the matching keypoints
     for match in matches:
-
         # Get the matching keypoints for each of the images
         templateImageIdx = match.queryIdx
         imageIdx = match.trainIdx
@@ -62,24 +71,45 @@ for imagePath in imagePaths:
         listKeypoints1.append((x1, y1))
         listKeyPoints2.append((x2, y2))
 
-    # mange kule kordinater
-    print(listKeypoints1)
-    topLeft = max(listKeypoints1, key=lambda x: (x[0], -x[1]))
-    bottomRight = max(listKeypoints1, key=lambda x: (-x[0], x[1]))
-    top =  max(listKeypoints1, key=lambda x: (x[0]))
-    print(top)
-    print (topLeft)
-    print (bottomRight)
-    x1 = topLeft[0]
-    y1 = topLeft[1]
-    x2 = bottomRight[0]
-    y2 = bottomRight[1]
+    # Find the largest and smallest axis value for each keypoint match
+    for keypoint in listKeyPoints2:
+        keypointX = keypoint[0]
+        keypointY = keypoint[1]
+        if keypointX > largestX:
+            largestX = keypointX
+        if keypointY > largestY:
+            largestY = keypointY
+        if keypointX < smallestX:
+            smallestX = keypointX
+        if keypointY < smallestY:
+            smallestY = keypointY
+    print(listKeyPoints2)
+    print("\n")
+    print(largestX)
+    print(largestY)
+    print(smallestX)
+    print(smallestY)
 
-    resultImage = cv2.drawMatches(templateImage, keypointsTemplateImage, inputImage,
-                                  keypointsInputImage, matches[:100], inputImage, flags=2)
+    topLeft = (int(smallestX), int(smallestY))
+    bottomRight = (int(largestX), int(largestY))
 
-    # God help me resultImage = cv2.rectangle(resultImage,(60,8) , (474,109), (0,255,0), thickness=10, lineType=None)
+    # Draws all the matching keypoints
+    # Uncomment this if you want to see all the keypoints
+    # resultImage = cv2.drawMatches(templateImage, keypointsTemplateImage, inputImage,
+    # keypointsInputImage, matches[:100], inputImage, flags=2)
 
-    plt.imshow(resultImage), plt.show()
+    # Draws the bounding box on top of the image
+    outputImage = cv2.imread(imagePath)
+    outputImage = cv2.rectangle(
+        outputImage,
+        topLeft,
+        bottomRight,
+        (0, 255, 0),
+        thickness=2,
+        lineType=None
+    )
+
+    plt.imshow(outputImage), plt.show()
 
     cv2.waitKey(0)
+    cv2.destroyAllWindows()

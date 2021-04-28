@@ -1,7 +1,54 @@
 import cv2
+import csv
 import numpy as np
 import glob
 import random
+from intersectionOverUnion import dataList
+
+# Saves all the iou scores
+iouScores = []
+
+# Imports the csv file
+with open("GroundTruth-numbered-only.csv", newline='') as csvfile:
+    dataList = list(csv.reader(csvfile))
+
+# y1, y2, x1, x2
+for i in range(len(dataList)):
+    dataTemp1 = dataList[i][1]
+    dataTemp2 = dataList[i][2]
+    dataList[i][1] = dataList[i][3]
+    dataList[i][2] = dataTemp1
+    dataList[i][3] = dataList[i][4]
+    dataList[i][4] = dataTemp2
+
+# Sorts the dataList after image name
+dataList.sort()
+
+# Computes the iou score between two rectangles
+def bb_intersection_over_union(boxA, boxB):
+    # determine the (x, y)-coordinates of the intersection rectangle
+    xA = max(boxA[0], boxB[0])
+    yA = max(boxA[1], boxB[1])
+    xB = min(boxA[2], boxB[2])
+    yB = min(boxA[3], boxB[3])
+
+    # compute the area of intersection rectangle
+    interArea = (xB - xA) * (yB - yA)
+
+    # compute the area of both the prediction and ground-truth
+    # rectangles
+    boxAArea = (boxA[2] - boxA[0]) * (boxA[3] - boxA[1])
+    boxBArea = (boxB[2] - boxB[0]) * (boxB[3] - boxB[1])
+
+    # compute the intersection over union by taking the intersection
+    # area and dividing it by the sum of prediction + ground-truth
+    # areas - the interesection area
+    iou = interArea / float(boxAArea + boxBArea - interArea)
+
+    # return the intersection over union value
+    return iou
+
+
 
 # Load Yolo
 net = cv2.dnn.readNet("yolov3_training_last.weights", "yolov3_testing.cfg")
@@ -10,15 +57,21 @@ net = cv2.dnn.readNet("yolov3_training_last.weights", "yolov3_testing.cfg")
 classes = ["Berggylte"]
 
 # Saves all the image paths in an array
-imagePaths = glob.glob(r"./dataset/testing/*")
+imagePaths = glob.glob(r"./dataset/testing/*.jpg")
+imagePaths.sort()
+
 
 layerNames = net.getLayerNames()
 outputLayers = [layerNames[i[0] - 1] for i in net.getUnconnectedOutLayers()]
 print(outputLayers)
 colors = np.random.uniform(0, 255, size=(len(classes), 3))
 
+# Starts a counter that increments for each loop
+counter = 0
+
 # loop through all the images
 for imagePath in imagePaths:
+
     # Loading image
     image = cv2.imread(imagePath)
     image = cv2.resize(image, None, fx=1, fy=1)
@@ -41,7 +94,6 @@ for imagePath in imagePaths:
             confidence = scores[class_id]
             if confidence > 0.001:
                 # Object detected
-                print(class_id)
                 center_x = int(detection[0] * width)
                 center_y = int(detection[1] * height)
                 w = int(detection[2] * width)
@@ -56,7 +108,6 @@ for imagePath in imagePaths:
                 class_ids.append(class_id)
 
     indexes = cv2.dnn.NMSBoxes(boxes, confidences, 0.5, 0.4)
-    print(indexes)
     font = cv2.FONT_HERSHEY_PLAIN
     for i in range(len(boxes)):
         if i in indexes:
@@ -66,9 +117,32 @@ for imagePath in imagePaths:
             cv2.rectangle(image, (x, y), (x + w, y + h), color, 2)
             cv2.putText(image, label, (x, y + 30), font, 2, color, 1)
 
+    ###
+    # Uncomment this to show each image
+    #cv2.imshow("Image", image)
 
-    cv2.imshow("Image", image)
-    print ('Coordinates: ' + str(x) + ', ' + str(y) + ', ' + str(w) + ', ' + str(h))
-    key = cv2.waitKey(0)
+    boxA = x, y, x+w, y+h
+    boxB = int(dataList[counter][1]), int(dataList[counter][2]), int(dataList[counter][3]), int(dataList[counter][4])
+    iouScore = bb_intersection_over_union(boxA, boxB)
+    iouScores.append(iouScore)
 
-cv2.destroyAllWindows()
+    print("Image path: \t\t" + str(imagePath))
+    print("Ground truth box: \t" + str(boxA))
+    print("YoloV3 detected box: \t" + str(boxB))
+    print("The iou score: \t\t" + str(iouScore))
+    print("\n")
+    counter = counter + 1
+
+    ###
+    # Uncomment this to go step by step
+    #key = cv2.waitKey(0)
+    ###
+
+###
+# Uncomment this to go step by step
+#cv2.destroyAllWindows()
+###
+
+# Prints all the iou scores
+print("All the iou scores: ")
+print(iouScores)

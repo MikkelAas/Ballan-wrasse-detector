@@ -1,9 +1,4 @@
-template = rgb2gray(imread('fish_croped.png'));
-
-% the templates scale compared to original image
-% (this can really be anything, but for now this is something)
-templateScaleHor = 0.323958333;
-templateScaleVer = 0.205555556;
+template = histeq(rgb2gray(imread('fish_croped.png')));
 
 % find the files
 myFolder = '/home/jakob/NTNU/4. Semester/IDATG2206 - Computer Vision/Project/split_dataset/testing-numbered';
@@ -22,14 +17,14 @@ for k = 1 : length(theFiles)
     
     try
         % try to find match
-        rectanglePosAndSize = tempmatchcrosscorr(image, template);
+        rectanglePosAndSize = tempmatchcrosscorr(image, template, 0);
         
         % save image with rectangle drawn around fish :)
         figure('visible','off');
         imshow(image);
         
         rectangle('position', rectanglePosAndSize, 'edgecolor', 'g', 'linewidth',2);
-        saveas(gcf,"./output/" + baseFileName + extension);
+        %saveas(gcf,"./output/" + baseFileName + extension);
         disp("oh yeah: " + baseFileName);
         
         % save detection area in the same format as ground truth
@@ -43,9 +38,12 @@ for k = 1 : length(theFiles)
         );
         err = false;
     catch error
+        % should never happen now :)
         disp("uh oh: "  + baseFileName);
     end
 end
 toc
 
 fclose(fileID);
+
+disp("iou: " + iou)

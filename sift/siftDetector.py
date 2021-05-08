@@ -3,6 +3,7 @@ import csv
 import sys
 import cv2
 import matplotlib.pyplot as plt
+import numpy as np
 
 # A list of all the iou scores
 iouScores = []
@@ -50,7 +51,7 @@ listKeypoints1 = []
 listKeyPoints2 = []
 
 # Reads the template image
-templateImage = cv2.imread('template.jpg')
+templateImage = cv2.imread('fish_croped.png')
 
 # Converts the colored image from RGB to grayscale
 templateImage = cv2.cvtColor(templateImage, cv2.COLOR_BGR2GRAY)
@@ -59,7 +60,9 @@ templateImage = cv2.cvtColor(templateImage, cv2.COLOR_BGR2GRAY)
 imagePaths = glob.glob('./dataset/testing/*.jpg')
 imagePaths.sort()
 
+# Index for each image in the path
 i = 0
+
 # Loops through all the images in the testing folder
 for imagePath in imagePaths:
     # The 'axes'
@@ -75,11 +78,20 @@ for imagePath in imagePaths:
     # Reads an image
     inputImage = cv2.imread(imagePath)
 
+    # Sharpening the image
+    filter = np.array([[-1, -1, -1], [-1, 9, -1], [-1, -1, -1]])
+    inputImage = cv2.filter2D(inputImage, -1, filter)
+
+    ###
+    # Uncomment this to denoise the image (Takes a lot of time)
+    # cv2.fastNlMeansDenoisingColored(inputImage, None, 20,20,14,42)
+    ###
+
     # Converts the image from RGB to grayscale
     inputImage = cv2.cvtColor(inputImage, cv2.COLOR_BGR2GRAY)
 
     # Creates a sift instance
-    sift = cv2.xfeatures2d.SIFT_create()
+    sift = cv2.xfeatures2d.SIFT_create(nfeatures=None, nOctaveLayers=None, contrastThreshold=None, edgeThreshold=None, sigma=None)
 
     # Computes keypoints in the template image
     keypointsTemplateImage, descriptorsTemplateImage = sift.detectAndCompute(templateImage, None)
@@ -129,23 +141,28 @@ for imagePath in imagePaths:
     topLeft = (int(smallestX), int(smallestY))
     bottomRight = (int(largestX), int(largestY))
 
-    boxA = (int(smallestX), int(smallestY), int(largestX), int(largestY))
-    boxB = int(dataList[i][1]), int(dataList[i][2]), int(dataList[i][3]), int(dataList[i][4])
+    boxA = int(dataList[i][1]), int(dataList[i][2]), int(dataList[i][3]), int(dataList[i][4])
+    boxB = (int(smallestX), int(smallestY), int(largestX), int(largestY))
 
-    print("Image name: " + imagePath)
-    print("Ground truth box: " + str(boxA))
-    print("Sift bounding box: " + str(boxB))
+    print("Image path: \t\t" + imagePath)
+    print("Ground truth box: \t" + str(boxA))
+    print("Sift bounding box: \t" + str(boxB))
 
     # Gets the iou score from the iou function
     iouScore = bb_intersection_over_union(boxA, boxB)
-    print("Iou score: "+ str(iouScore))
+
+    # Set the iou score to 0 if it turns out to be negative
+    if iouScore < 0:
+        iouScore = 0
+    
+    print("The iou score: \t\t" + str(iouScore))
     print("\n")
 
     ###
-    # Draws all the matching keypoints
+    # Uncomment to draw all the matching keypoints
     # Uncomment this if you want to see all the keypoints
-    # resultImage = cv2.drawMatches(templateImage, keypointsTemplateImage, inputImage,
-    # keypointsInputImage, matches[:100], inputImage, flags=2)
+    #outputImage = cv2.drawMatches(templateImage, keypointsTemplateImage, inputImage,
+    #keypointsInputImage, matches[:10000], inputImage, flags=2)
     ###
 
     # Draws the bounding box on top of the image
@@ -154,32 +171,32 @@ for imagePath in imagePaths:
         outputImage,
         topLeft,
         bottomRight,
-        (0, 255, 0),
-        thickness=2,
-        lineType=None
+        (255, 0, 0),
+        thickness=2
     )
-
+    
     # Draws the ground truth
     outputImage = cv2.rectangle(
         outputImage,
-        (int(dataList[i][1]), int(dataList[i][2])),
-        (int(dataList[i][3]), int(dataList[i][4])),
-        (255,0,0),
-        thickness=2,
-        lineType=None
+        (int(dataList[i][1]), int(dataList[i][2])), 
+        (int(dataList[i][3]), int(dataList[i][4])), 
+        (0,255,0),
+        thickness=2
     )
 
     # Append the iou score the iou scores list
     iouScores.append(iouScore)
-
-    ###
-    # Uncomment this if you want to see the results in the image
-    # plt.imshow(outputImage), plt.show()
-    # cv2.waitKey(0)
-    # cv2.destroyAllWindows()
-    ###
+    
+    # Shows the image (press key/close image to go to the next image)
+    plt.imshow(outputImage), plt.show()
+    cv2.waitKey(0)
 
     # Increments by one to get the next image in the dataList
     i = i + 1
 
+print("The iou scores: ")
+print(iouScores)
+print("\n")
 print("Average iou:" + str(sum(iouScores)/50))
+print("Median IoU score: " + str(iouScores[25]))
+print("The highest iou score: " + str(max(iouScores)))

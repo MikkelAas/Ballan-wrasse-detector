@@ -5,12 +5,14 @@ import glob
 import random
 from intersectionOverUnion import dataList
 
+index = 0
+
 # Saves all the iou scores
 iouScores = []
 
 # Imports the csv file
 with open("GroundTruth-numbered-only.csv", newline='') as csvfile:
-    dataList = list(csv.reader(csvfile))
+   dataList = list(csv.reader(csvfile))
 
 # y1, y2, x1, x2
 for i in range(len(dataList)):
@@ -67,7 +69,7 @@ print(outputLayers)
 colors = np.random.uniform(0, 255, size=(len(classes), 3))
 
 # Starts a counter that increments for each loop
-counter = 0
+
 
 # loop through all the images
 for imagePath in imagePaths:
@@ -80,6 +82,7 @@ for imagePath in imagePaths:
     # Detecting objects
     blob = cv2.dnn.blobFromImage(image, 0.00392, (416, 416), (0, 0, 0), True, crop=False)
 
+    #
     net.setInput(blob)
     outs = net.forward(outputLayers)
 
@@ -113,17 +116,30 @@ for imagePath in imagePaths:
         if i in indexes:
             x, y, w, h = boxes[i]
             label = str(classes[class_ids[i]])
-            color = colors[class_ids[i]]
+            color = (0,0,255)
             cv2.rectangle(image, (x, y), (x + w, y + h), color, 2)
             cv2.putText(image, label, (x, y + 30), font, 2, color, 1)
+
+
+    image = cv2.rectangle(
+        image,
+        (int(dataList[index][1]), int(dataList[index][2])), 
+        (int(dataList[index][3]), int(dataList[index][4])), 
+        (0,255,0),
+        thickness=2
+    )
 
     ###
     # Uncomment this to show each image
     #cv2.imshow("Image", image)
 
     boxA = x, y, x+w, y+h
-    boxB = int(dataList[counter][1]), int(dataList[counter][2]), int(dataList[counter][3]), int(dataList[counter][4])
+    boxB = int(dataList[index][1]), int(dataList[index][2]), int(dataList[index][3]), int(dataList[index][4])
     iouScore = bb_intersection_over_union(boxA, boxB)
+    
+    if iouScore < 0:
+        iouScore = 0
+
     iouScores.append(iouScore)
 
     print("Image path: \t\t" + str(imagePath))
@@ -131,7 +147,12 @@ for imagePath in imagePaths:
     print("YoloV3 detected box: \t" + str(boxB))
     print("The iou score: \t\t" + str(iouScore))
     print("\n")
-    counter = counter + 1
+    
+    
+    cv2.imwrite("yoloResults/image00" + str(index) + ".jpg",image)
+    print(index)
+    
+    index = index + 1
 
     ###
     # Uncomment this to go step by step
@@ -146,3 +167,9 @@ for imagePath in imagePaths:
 # Prints all the iou scores
 print("All the iou scores: ")
 print(iouScores)
+print("\n")
+print("The average iou score: ")
+print(sum(iouScores)/50)
+
+print("\n")
+print("done")
